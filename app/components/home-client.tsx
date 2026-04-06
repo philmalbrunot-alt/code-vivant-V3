@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -27,6 +34,9 @@ type Props = {
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
+const FIRST_STEP: Step = 0;
+const LAST_STEP: Step = 5;
+
 const initialAnswers: QuizAnswers = {
   firstName: "",
   birthDate: "",
@@ -39,8 +49,16 @@ const initialAnswers: QuizAnswers = {
 const storageKey = "code-vivant:last-analysis";
 const reservationUrl = "https://koalendar.com/e/echange-avec-philippe-malbrunot";
 
+function previousStep(step: Step): Step {
+  return step === FIRST_STEP ? FIRST_STEP : ((step - 1) as Step);
+}
+
+function nextStep(step: Step): Step {
+  return step === LAST_STEP ? LAST_STEP : ((step + 1) as Step);
+}
+
 export default function HomeClient({ searchParams }: Props) {
-  const [step, setStep] = useState<Step>(0);
+  const [step, setStep] = useState<Step>(FIRST_STEP);
   const [answers, setAnswers] = useState<QuizAnswers>(initialAnswers);
   const [loading, setLoading] = useState(false);
   const [unlocking, setUnlocking] = useState(false);
@@ -52,6 +70,7 @@ export default function HomeClient({ searchParams }: Props) {
   useEffect(() => {
     const hydrate = async () => {
       const params = searchParams || {};
+
       if (typeof window !== "undefined") {
         const raw = window.localStorage.getItem(storageKey);
         if (raw) {
@@ -91,24 +110,27 @@ export default function HomeClient({ searchParams }: Props) {
         });
 
         const data = await res.json();
+
         if (!res.ok) {
           throw new Error(data.error || "Impossible de déverrouiller le profil.");
         }
 
-        const next = {
+        const nextAnalysis: FullAnalysisPayload = {
           ...analysis,
           premium: data.premium,
         };
 
-        setAnalysis(next);
+        setAnalysis(nextAnalysis);
+
         if (typeof window !== "undefined") {
           window.localStorage.setItem(
             storageKey,
             JSON.stringify({
               answers,
-              analysis: next,
+              analysis: nextAnalysis,
             }),
           );
+          window.scrollTo({ top: 0, behavior: "smooth" });
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Erreur inattendue.");
@@ -120,7 +142,10 @@ export default function HomeClient({ searchParams }: Props) {
     unlock();
   }, [sessionId, analysis, answers, unlocking]);
 
-  const progress = useMemo(() => ((step + 1) / 6) * 100, [step]);
+  const progress = useMemo(() => {
+    if (step === FIRST_STEP) return 0;
+    return ((step - 0) / LAST_STEP) * 100;
+  }, [step]);
 
   async function handleGenerate() {
     if (
@@ -146,26 +171,28 @@ export default function HomeClient({ searchParams }: Props) {
       });
 
       const data = await res.json();
+
       if (!res.ok) {
         throw new Error(data.error || "Impossible de générer la lecture.");
       }
 
-      const next: FullAnalysisPayload = {
+      const nextAnalysis: FullAnalysisPayload = {
         numerology: data.numerology,
         free: data.free,
       };
 
-      setAnalysis(next);
+      setAnalysis(nextAnalysis);
+
       if (typeof window !== "undefined") {
         window.localStorage.setItem(
           storageKey,
           JSON.stringify({
             answers,
-            analysis: next,
+            analysis: nextAnalysis,
           }),
         );
+        window.scrollTo({ top: 0, behavior: "smooth" });
       }
-      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inattendue.");
     } finally {
@@ -185,6 +212,7 @@ export default function HomeClient({ searchParams }: Props) {
       });
 
       const data = await res.json();
+
       if (!res.ok || !data.url) {
         throw new Error(data.error || "Paiement indisponible pour le moment.");
       }
@@ -198,6 +226,7 @@ export default function HomeClient({ searchParams }: Props) {
 
   async function handleCopyLink() {
     try {
+      if (typeof window === "undefined" || !navigator?.clipboard) return;
       await navigator.clipboard.writeText(window.location.href);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
@@ -232,7 +261,7 @@ export default function HomeClient({ searchParams }: Props) {
 
         <div className="mx-auto mt-10 max-w-3xl">
           <AnimatePresence mode="wait">
-            {step === 0 && (
+            {step === FIRST_STEP && (
               <motion.div
                 key="hero"
                 initial={{ opacity: 0, y: 16 }}
@@ -244,7 +273,7 @@ export default function HomeClient({ searchParams }: Props) {
               </motion.div>
             )}
 
-            {step > 0 && (
+            {step > FIRST_STEP && (
               <motion.div
                 key={`step-${step}`}
                 initial={{ opacity: 0, y: 16 }}
@@ -261,11 +290,11 @@ export default function HomeClient({ searchParams }: Props) {
                   setAnswers={setAnswers}
                   onBack={() => {
                     setError(null);
-                    setStep((prev) => Math.max(0, (prev - 1) as Step));
+                    setStep((prev) => previousStep(prev));
                   }}
                   onNext={() => {
                     setError(null);
-                    setStep((prev) => Math.min(5, (prev + 1) as Step));
+                    setStep((prev) => nextStep(prev));
                   }}
                   onGenerate={handleGenerate}
                 />
@@ -347,7 +376,7 @@ function QuestionFlow({
   answers: QuizAnswers;
   error: string | null;
   loading: boolean;
-  setAnswers: React.Dispatch<React.SetStateAction<QuizAnswers>>;
+  setAnswers: Dispatch<SetStateAction<QuizAnswers>>;
   onBack: () => void;
   onNext: () => void;
   onGenerate: () => void;
@@ -374,11 +403,7 @@ function QuestionFlow({
             className="mt-8 w-full rounded-2xl border border-cv-gold/20 bg-cv-panelAlt px-5 py-4 text-base outline-none transition focus:border-cv-gold/50"
             placeholder="Ex. Martin"
           />
-          <StepActions
-            onBack={onBack}
-            onNext={onNext}
-            nextDisabled={!answers.firstName.trim()}
-          />
+          <StepActions onBack={onBack} onNext={onNext} nextDisabled={!answers.firstName.trim()} />
         </QuestionShell>
       )}
 
@@ -421,7 +446,12 @@ function QuestionFlow({
           value={answers.currentFocus}
           options={QUIZ_OPTIONS.focus}
           onBack={onBack}
-          onChange={(value) => setAnswers((prev) => ({ ...prev, currentFocus: value as QuizAnswers["currentFocus"] }))}
+          onChange={(value) =>
+            setAnswers((prev) => ({
+              ...prev,
+              currentFocus: value as QuizAnswers["currentFocus"],
+            }))
+          }
           onContinue={onNext}
         />
       )}
@@ -437,13 +467,23 @@ function QuestionFlow({
               legend="En ce moment, votre niveau d’énergie ressemble à…"
               value={answers.energyState}
               options={QUIZ_OPTIONS.energy}
-              onChange={(value) => setAnswers((prev) => ({ ...prev, energyState: value as QuizAnswers["energyState"] }))}
+              onChange={(value) =>
+                setAnswers((prev) => ({
+                  ...prev,
+                  energyState: value as QuizAnswers["energyState"],
+                }))
+              }
             />
             <ChoiceGroup
               legend="Quand ça ne va pas, vous faites quoi le plus souvent ?"
               value={answers.stressResponse}
               options={QUIZ_OPTIONS.stress}
-              onChange={(value) => setAnswers((prev) => ({ ...prev, stressResponse: value as QuizAnswers["stressResponse"] }))}
+              onChange={(value) =>
+                setAnswers((prev) => ({
+                  ...prev,
+                  stressResponse: value as QuizAnswers["stressResponse"],
+                }))
+              }
             />
           </div>
 
@@ -605,7 +645,12 @@ function ResultPage({
 
   return (
     <div className="space-y-6">
-      <ResultIntro firstName={answers.firstName} title={analysis.free.title} subtitle={analysis.free.subtitle} overview={analysis.free.overview} />
+      <ResultIntro
+        firstName={answers.firstName}
+        title={analysis.free.title}
+        subtitle={analysis.free.subtitle}
+        overview={analysis.free.overview}
+      />
 
       <div className="grid gap-5">
         <ResultSection title="Votre mode de protection principal" content={analysis.free.survivalMode} />
@@ -618,23 +663,36 @@ function ResultPage({
 
       <LockedContentTeaser text={analysis.free.premiumTease} />
 
-      <OfferCards
-        onUnlock={onUnlock}
-        unlocking={unlocking}
-        premiumUnlocked={premiumUnlocked}
-        error={error}
-      />
+      {unlocking && !premiumUnlocked ? <UnlockingState /> : null}
+
+      {!unlocking && !premiumUnlocked ? (
+        <OfferCards
+          onUnlock={onUnlock}
+          unlocking={unlocking}
+          premiumUnlocked={premiumUnlocked}
+          error={error}
+        />
+      ) : null}
 
       {premiumUnlocked && analysis.premium ? <PremiumArea premium={analysis.premium} /> : null}
 
       <ShareBlock copied={copied} onCopyLink={onCopyLink} />
-
       <FooterNote />
     </div>
   );
 }
 
-function ResultIntro({ firstName, title, subtitle, overview }: { firstName: string; title: string; subtitle: string; overview: string }) {
+function ResultIntro({
+  firstName,
+  title,
+  subtitle,
+  overview,
+}: {
+  firstName: string;
+  title: string;
+  subtitle: string;
+  overview: string;
+}) {
   return (
     <section className="gold-panel rounded-[32px] px-6 py-7 md:px-8 md:py-9">
       <p className="text-xs uppercase tracking-[0.22em] text-cv-gold/80">{title || "résultat"}</p>
@@ -704,8 +762,32 @@ function LockedContentTeaser({ text }: { text: string }) {
           <h2 className="mt-3 font-serif text-2xl leading-tight md:text-4xl">Le vrai nœud n’est pas encore révélé</h2>
           <p className="mt-4 text-sm leading-7 text-cv-muted md:text-base md:leading-8">{text}</p>
           <div className="mt-5 space-y-2 text-sm leading-7 text-cv-faint">
-            <p>La suite montre le verrou principal, la peur racine, le rapport à la légitimité, l’élan retenu et la direction de bascule la plus juste.</p>
+            <p>
+              La suite montre le verrou principal, la peur racine, le rapport à la légitimité, l’élan retenu et la direction de bascule la plus juste.
+            </p>
           </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function UnlockingState() {
+  return (
+    <section className="rounded-[32px] border border-cv-gold/18 bg-gradient-to-b from-cv-panelAlt to-cv-panel px-6 py-7 md:px-8 md:py-8">
+      <div className="flex items-start gap-4">
+        <div className="mt-1 flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-full border border-cv-gold/25 bg-cv-gold/10 text-cv-gold">
+          <LoaderCircle className="h-5 w-5 animate-spin" />
+        </div>
+        <div className="max-w-3xl">
+          <p className="text-xs uppercase tracking-[0.22em] text-cv-gold/75">paiement confirmé</p>
+          <h2 className="mt-3 font-serif text-2xl leading-tight md:text-4xl">
+            Nous préparons votre lecture complète
+          </h2>
+          <p className="mt-4 text-sm leading-7 text-cv-muted md:text-base md:leading-8">
+            Votre paiement a bien été validé. Nous générons maintenant votre lecture complète.
+            Cela peut prendre jusqu’à une minute. Ne fermez pas cette page.
+          </p>
         </div>
       </div>
     </section>
@@ -779,7 +861,7 @@ function OfferCard({
   icon?: ReactNode;
   recommended?: boolean;
 }) {
-  const content = (
+  return (
     <div
       className={cn(
         "relative rounded-[28px] border px-5 py-5 md:px-6 md:py-6",
@@ -791,9 +873,11 @@ function OfferCard({
           recommandé
         </span>
       ) : null}
+
       <p className="font-serif text-2xl leading-tight">{title}</p>
       <p className="mt-3 text-3xl font-semibold text-cv-gold">{price}</p>
       <p className="mt-4 text-sm leading-7 text-cv-muted">{description}</p>
+
       <div className="mt-6">
         {href ? (
           <a
@@ -820,8 +904,6 @@ function OfferCard({
       </div>
     </div>
   );
-
-  return content;
 }
 
 function PremiumArea({ premium }: { premium: NonNullable<FullAnalysisPayload["premium"]> }) {
@@ -834,7 +916,9 @@ function PremiumArea({ premium }: { premium: NonNullable<FullAnalysisPayload["pr
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.22em] text-cv-gold/75">lecture complète</p>
-            <h2 className="mt-3 font-serif text-2xl leading-tight md:text-4xl">Vous êtes allé au-delà du premier seuil</h2>
+            <h2 className="mt-3 font-serif text-2xl leading-tight md:text-4xl">
+              Vous êtes allé au-delà du premier seuil
+            </h2>
             <p className="mt-4 text-sm leading-7 text-cv-muted md:text-base md:leading-8">
               Ce qui suit relie le blocage central, l’héritage invisible, le rapport à la valeur, l’élan retenu et le point de bascule. Là, on ne tourne plus autour. On va au nœud.
             </p>
@@ -866,9 +950,18 @@ function PremiumArea({ premium }: { premium: NonNullable<FullAnalysisPayload["pr
 }
 
 function ShareBlock({ copied, onCopyLink }: { copied: boolean; onCopyLink: () => void }) {
+  const shareHref =
+    typeof window !== "undefined"
+      ? `mailto:?subject=${encodeURIComponent("Code Vivant")}&body=${encodeURIComponent(
+          "Je pense que cette expérience pourrait vous parler : " + window.location.href,
+        )}`
+      : "mailto:?subject=Code%20Vivant";
+
   return (
     <section className="rounded-[28px] border border-cv-gold/12 bg-cv-panelAlt/70 px-6 py-6 md:px-7">
-      <h2 className="font-serif text-2xl leading-tight md:text-[30px]">Vous avez pensé à quelqu’un en lisant ceci ?</h2>
+      <h2 className="font-serif text-2xl leading-tight md:text-[30px]">
+        Vous avez pensé à quelqu’un en lisant ceci ?
+      </h2>
       <p className="mt-3 text-sm leading-7 text-cv-muted">Partagez-lui cette expérience.</p>
       <div className="mt-5 flex flex-wrap gap-3">
         <button
@@ -879,7 +972,7 @@ function ShareBlock({ copied, onCopyLink }: { copied: boolean; onCopyLink: () =>
           {copied ? "Lien copié" : "Copier le lien"}
         </button>
         <a
-          href={`mailto:?subject=${encodeURIComponent("Code Vivant")}&body=${encodeURIComponent("Je pense que cette expérience pourrait vous parler : " + (typeof window !== "undefined" ? window.location.href : ""))}`}
+          href={shareHref}
           className="inline-flex items-center gap-2 rounded-2xl border border-cv-gold/16 bg-cv-panel px-4 py-3 text-sm font-medium text-cv-text transition hover:border-cv-gold/30 hover:bg-cv-gold/8"
         >
           <Mail className="h-4 w-4" />
@@ -943,7 +1036,13 @@ function PrimaryButton({
   );
 }
 
-function SecondaryButton({ children, onClick }: { children: ReactNode; onClick?: () => void }) {
+function SecondaryButton({
+  children,
+  onClick,
+}: {
+  children: ReactNode;
+  onClick?: () => void;
+}) {
   return (
     <button
       onClick={onClick}
