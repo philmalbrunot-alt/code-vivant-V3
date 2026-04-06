@@ -14,7 +14,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Stripe n’est pas encore configuré.' }, { status: 500 });
     }
 
-    const baseUrl = process.env.APP_BASE_URL || 'http://localhost:3000';
+    const requestOrigin = new URL(req.url).origin;
+    const baseUrl = process.env.APP_BASE_URL || requestOrigin;
     const stripe = getStripe();
 
     const session = await stripe.checkout.sessions.create({
