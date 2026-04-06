@@ -11,39 +11,55 @@ export default function HomePage() {
   const [started, setStarted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(values: QuizAnswers) {
-    try {
-      setIsSubmitting(true);
-      const res = await fetch('/api/analyze/free', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(values),
-      });
+async function handleSubmit(values: QuizAnswers) {
+  try {
+    setIsSubmitting(true);
 
-      const data = await res.json();
+    const [day = '', month = '', year = ''] = values.birthDate.split('/');
 
-      if (!res.ok) {
-        throw new Error(data?.error || 'Impossible de générer votre portrait.');
-      }
+    const payload = {
+      prenom: values.firstName,
+      dateNaissance: {
+        day,
+        month,
+        year,
+      },
+      lieu: values.birthPlace,
+      situation: values.situation,
+      energie: values.energy,
+      defense: values.reaction,
+    };
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem(
-          'code-vivant-free-reading',
-          JSON.stringify({
-            answers: values,
-            analysis: data,
-          }),
-        );
-      }
+    const res = await fetch('/api/analyze/free', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
 
-      router.push('/resultat');
-    } catch (error) {
-      console.error(error);
-      alert("Impossible de générer le portrait pour le moment.");
-    } finally {
-      setIsSubmitting(false);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.error || 'Impossible de générer votre portrait.');
     }
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(
+        'code-vivant-free-reading',
+        JSON.stringify({
+          answers: payload,
+          analysis: data,
+        }),
+      );
+    }
+
+    router.push('/resultat');
+  } catch (error) {
+    console.error(error);
+    alert("Impossible de générer le portrait pour le moment.");
+  } finally {
+    setIsSubmitting(false);
   }
+}
 
   return (
     <Shell>
