@@ -348,7 +348,7 @@ function HeroSection({ onStart }: { onStart: () => void }) {
   );
 }
 
-function BadgeRow({ items }: { items: string[] }) {
+function BadgeRow({ items }: { items: readonly string[] }) {
   return (
     <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-xs uppercase tracking-[0.16em] text-cv-faint">
       {items.map((item) => (
