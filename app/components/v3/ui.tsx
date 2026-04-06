@@ -30,7 +30,7 @@ export function Label({ children }: { children: ReactNode }) {
   return <p className="text-[11px] uppercase tracking-[0.26em] text-cv-gold/85">{children}</p>;
 }
 
-export function BadgeRow({ items }: { items: string[] }) {
+export function BadgeRow({ items }: { items: readonly string[] }) {
   return (
     <div className="mt-6 flex flex-wrap justify-center gap-2.5 md:mt-8">
       {items.map((item) => (
