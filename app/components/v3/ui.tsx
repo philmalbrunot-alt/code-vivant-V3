@@ -34,10 +34,7 @@ export function BadgeRow({ items }: { items: string[] }) {
   return (
     <div className="mt-6 flex flex-wrap justify-center gap-2.5 md:mt-8">
       {items.map((item) => (
-        <span
-          key={item}
-          className="rounded-full border border-cv-gold/15 bg-cv-panelAlt px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-cv-faint md:text-xs"
-        >
+        <span key={item} className="rounded-full border border-cv-gold/15 bg-cv-panelAlt px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-cv-faint md:text-xs">
           {item}
         </span>
       ))}
@@ -95,17 +92,7 @@ export function ProgressBar({ value }: { value: number }) {
   );
 }
 
-export function SectionTitle({
-  eyebrow,
-  title,
-  body,
-  align = 'left',
-}: {
-  eyebrow?: string;
-  title: string;
-  body?: string;
-  align?: 'left' | 'center';
-}) {
+export function SectionTitle({ eyebrow, title, body, align = 'left' }: { eyebrow?: string; title: string; body?: string; align?: 'left' | 'center' }) {
   return (
     <div className={cn(align === 'center' ? 'mx-auto max-w-2xl text-center' : 'max-w-3xl')}>
       {eyebrow ? <Label>{eyebrow}</Label> : null}
