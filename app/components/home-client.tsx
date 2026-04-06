@@ -34,6 +34,11 @@ type Props = {
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5;
 
+type ChoiceOption = Readonly<{
+  value: string;
+  label: string;
+}>;
+
 const FIRST_STEP: Step = 0;
 const LAST_STEP: Step = 5;
 
@@ -144,7 +149,7 @@ export default function HomeClient({ searchParams }: Props) {
 
   const progress = useMemo(() => {
     if (step === FIRST_STEP) return 0;
-    return ((step - 0) / LAST_STEP) * 100;
+    return (step / LAST_STEP) * 100;
   }, [step]);
 
   async function handleGenerate() {
@@ -555,7 +560,7 @@ function ChoiceStep({
   title: string;
   subtitle: string;
   value: string;
-  options: { value: string; label: string }[];
+  options: readonly ChoiceOption[];
   onBack: () => void;
   onChange: (value: string) => void;
   onContinue: () => void;
@@ -594,7 +599,7 @@ function ChoiceGroup({
 }: {
   legend: string;
   value: string;
-  options: { value: string; label: string }[];
+  options: readonly ChoiceOption[];
   onChange: (value: string) => void;
 }) {
   return (
